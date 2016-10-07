@@ -1,5 +1,5 @@
 import { TaskQueue } from 'aurelia-framework';
-import { subscriberCollection } from 'aurelia-binding';
+import { subscriberCollection } from 'aurelia-framework';
 import { Store } from './Store';
 
 @subscriberCollection()

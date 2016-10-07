@@ -1,11 +1,15 @@
-import { metadata } from 'aurelia-metadata';
+import { metadata } from 'aurelia-framework';
 
 import { isFunction, isString } from './utils';
 import { Store, StoreSelector } from './Store';
-
+import {Disposable} from 'aurelia-framework';
 export interface ReduxSelectConfig {
   subscribe?: boolean|string;
   invoke?: boolean;
+}
+
+export interface ReduxSelectorConfig extends ReduxSelectConfig{
+  autodispose?: boolean|string;
 }
 
 export const SELECTOR_METADATA_KEY = 'aurelia-redux:selector';
@@ -58,51 +62,80 @@ export const SELECTOR_METADATA_KEY = 'aurelia-redux:selector';
  */
 export function select<S, T>(selector?: string|Array<string|number>|StoreSelector<S, T>|null, config: ReduxSelectConfig = {}): PropertyDecorator {
   return function(target: any, propertyKey: string): void {
-    const handlerName = isString(config.subscribe) ? config.subscribe as string : `${propertyKey}Changed`;
-    let lastValue: T;
-    let lastChangeId: number;
-    
-    if (!selector) {
-      selector = propertyKey;
-    }
-
-    // Flag this property in case the getter gets replaced by other decorators.
     metadata.define(SELECTOR_METADATA_KEY, true, target, propertyKey);
+    selectImplementation(target, propertyKey, selector, config);
+  }
+}
 
-    // Used for a quick check later on when creating an observer.
-    (getter as any).__redux__ = true;
+export function selector<S, T>(target: any, propertyKey: string, selector?: string|Array<string|number>|StoreSelector<S, T>|null, config: ReduxSelectorConfig = {autodispose: true}): Disposable{
+  let disposable = selectImplementation(target, propertyKey, selector, config);
+  let oldDisposeMethod: Function;
+  if(config.autodispose){
+    let disposeMethod = isString(config.autodispose) ? config.autodispose as string : 'unbind';
+    let oldDisposeMethod = target[disposeMethod];
+    target[disposeMethod] = disposeSubscription;
+  }
+  function disposeSubscription(){
+    if(disposable)
+      disposable.dispose();
+    if(oldDisposeMethod)
+      oldDisposeMethod.call(this, arguments);
+  }
+  return disposable;
+}
 
-    if (delete target[propertyKey]) {
-      Object.defineProperty(target, propertyKey, {
-        get: getter,
-        enumerable: true,
-        configurable: true
-      });
-    }
-    
-    if (config.subscribe) {
-      // This needs to come after we define the getter to get the correct observer.
-      Store.queue(() => Store.instance.observe(target, propertyKey, observer));
-    }
-    
-    function getter(): T {
-      if (!Store.instance) {
-        return lastValue;
-      }
-      
-      let value = lastValue;
-      
-      if (Store.instance.changeId !== lastChangeId) {
-        value = Store.instance.select(selector as StoreSelector<S, T>, this, { invoke: config.invoke });
-        lastValue = value;
-        lastChangeId = Store.instance.changeId;
-      }
-
-      return value
-    }
-
-    function observer(...args: any[]): void {
-      target[handlerName].apply(target, args);
+function selectImplementation<S, T>(target: any, propertyKey: string, selector?: string|Array<string|number>|StoreSelector<S, T>|null, config: ReduxSelectConfig = {}): Disposable{
+  const handlerName = isString(config.subscribe) ? config.subscribe as string : `${propertyKey}Changed`;
+  let lastValue: T;
+  let lastChangeId: number;
+  var observer: Disposable;
+  let disposable: Disposable = {
+    dispose: () =>{
+      if(observer)
+        observer.dispose();
     }
   }
+  if (!selector) {
+    selector = propertyKey;
+  }
+
+  // Used for a quick check later on when creating an observer.
+  (getter as any).__redux__ = true;
+
+  if (delete target[propertyKey]) {
+    Object.defineProperty(target, propertyKey, {
+      get: getter,
+      enumerable: true,
+      configurable: true
+    });
+  }
+
+  if (config.subscribe) {
+    // This needs to come after we define the getter to get the correct observer.
+    Store.queue(() => {
+      observer = Store.instance.observe(target, propertyKey, observer);
+      return observer;
+    });
+  }
+
+  function getter(): T {
+    if (!Store.instance) {
+      return lastValue;
+    }
+
+    let value = lastValue;
+
+    if (Store.instance.changeId !== lastChangeId) {
+      value = Store.instance.select(selector as StoreSelector<S, T>, this, { invoke: config.invoke });
+      lastValue = value;
+      lastChangeId = Store.instance.changeId;
+    }
+
+    return value
+  }
+
+  function observer(...args: any[]): void {
+    target[handlerName].apply(target, args);
+  }
+  return disposable;
 }

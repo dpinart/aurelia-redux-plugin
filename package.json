@@ -4,7 +4,7 @@
   "description": "A Redux plugin for the Aurelia framework",
   "main": "dist/commonjs/aurelia-redux-plugin.js",
   "scripts": {
-    "clean": "del -rf dist",
+    "clean": "del dist",
     "prebuild": "npm run clean",
     "build": "npm run build:es2015 && npm run build:commonjs && npm run build:system && npm run build:amd && npm run build:native",
     "build:es2015": "tsc --module es2015 --target es2015 --outDir dist/es2015",
@@ -22,6 +22,7 @@
   "license": "MIT",
   "typings": "src/aurelia-redux-plugin.ts",
   "devDependencies": {
+    "del": "^2.2.2",
     "typescript": "^2.0.3",
     "typings": "^1.4.0"
   },
