@@ -3,7 +3,7 @@ import { ReduxObservationAdapter } from './ReduxObservationAdapter';
 import { Store } from './Store';
 export function configure(config, pluginConfig) {
     const container = config.container;
-    const store = container.invoke(Store, [config]);
+    const store = container.invoke(Store, [pluginConfig]);
     container.registerInstance(Store, store);
     container.get(ObserverLocator).addAdapter(container.get(ReduxObservationAdapter));
 }

@@ -5,7 +5,7 @@ define(["require", "exports", 'aurelia-framework', './ReduxObservationAdapter', 
     }
     function configure(config, pluginConfig) {
         var container = config.container;
-        var store = container.invoke(Store_1.Store, [config]);
+        var store = container.invoke(Store_1.Store, [pluginConfig]);
         container.registerInstance(Store_1.Store, store);
         container.get(aurelia_framework_1.ObserverLocator).addAdapter(container.get(ReduxObservationAdapter_1.ReduxObservationAdapter));
     }
